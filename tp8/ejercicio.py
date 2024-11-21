@@ -56,7 +56,7 @@ def calcular_estadisticas(df, sucursal_seleccionada):
 
     return estadisticas
 
-def graficar_evolucion(df, producto):
+def graficar_desarrollo(df, producto):
     df_producto = df[df['Producto'] == producto].sort_values('Año-Mes')
     x = np.arange(len(df_producto))
     y = df_producto['Unidades_vendidas'].values
@@ -142,7 +142,7 @@ def main():
                     )
 
                 with col2:
-                    graficar_evolucion(df_producto_filtrado, producto)
+                    graficar_desarrollo(df_producto_filtrado, producto)
 
 if __name__ == "__main__":
     main()
