@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #link de streamlit
-#     
+#     https://lautarojuarezparcial.streamlit.app/
 
 def mostrar_informacion_alumno():
     with st.container():
@@ -33,28 +33,26 @@ def calcular_estadisticas(df, sucursal_seleccionada):
     # Eliminar filas con datos faltantes
     df = df.dropna(subset=['Ingreso_total', 'Unidades_vendidas', 'Costo_total'])
     
-    # Agrupar datos por producto
-    estadisticas = df.groupby('Producto').agg({
-        'Ingreso_total': 'sum',
-        'Unidades_vendidas': 'sum',
-        'Costo_total': 'sum'
-    }).reset_index()
-    
     # Calcular métricas principales
-    estadisticas['Precio Promedio'] = estadisticas['Ingreso_total'] / estadisticas['Unidades_vendidas']
-    estadisticas['Margen Promedio'] = (estadisticas['Ingreso_total'] - estadisticas['Costo_total']) / estadisticas['Ingreso_total']
-    estadisticas['Unidades Vendidas'] = estadisticas['Unidades_vendidas']
-    
-    # Calcular cambios como porcentaje de variación respecto a valores totales (opcional)
-    precio_promedio_total = estadisticas['Precio Promedio'].mean()
-    margen_promedio_total = estadisticas['Margen Promedio'].mean()
-    unidades_vendidas_total = estadisticas['Unidades Vendidas'].mean()
+    df['Precio Promedio'] = df['Ingreso_total'] / df['Unidades_vendidas']
+    df['Margen'] = ((df['Ingreso_total'] - df['Costo_total']) / df['Ingreso_total']) * 100
 
-    estadisticas['Cambio Precio'] = ((estadisticas['Precio Promedio'] - precio_promedio_total) / precio_promedio_total) * 100
-    estadisticas['Cambio Margen'] = ((estadisticas['Margen Promedio'] - margen_promedio_total) / margen_promedio_total) * 100
-    estadisticas['Cambio Unidades'] = ((estadisticas['Unidades Vendidas'] - unidades_vendidas_total) / unidades_vendidas_total) * 100
+    return df
 
-    return estadisticas
+def calcular_variaciones(df):
+    variaciones = {}
+    for producto in df['Producto'].unique():
+        datos_producto = df[df['Producto'] == producto]
+        precio_promedio_anual = datos_producto.groupby('Año')['Precio Promedio'].mean()
+        margen_promedio_anual = datos_producto.groupby('Año')['Margen'].mean()
+        unidades_vendidas_anual = datos_producto.groupby('Año')['Unidades_vendidas'].sum()
+
+        variaciones[producto] = {
+            "variacion_precio_promedio": precio_promedio_anual.pct_change().mean() * 100,
+            "variacion_margen_promedio": margen_promedio_anual.pct_change().mean() * 100,
+            "variacion_unidades_vendidas": unidades_vendidas_anual.pct_change().mean() * 100
+        }
+    return variaciones
 
 def graficar_desarrollo(df, producto):
     df_producto = df[df['Producto'] == producto].sort_values('Año-Mes')
@@ -94,8 +92,6 @@ def graficar_desarrollo(df, producto):
 
     st.pyplot(plt)  
 
-
-
 def main():
     st.title("Análisis de Ventas")
     mostrar_informacion_alumno()
@@ -111,38 +107,43 @@ def main():
         if df is not None:
             st.header(f"Datos de {'Todas las Sucursales' if sucursal_seleccionada == 'Todas' else sucursal_seleccionada}")
             
-            estadisticas = calcular_estadisticas(df, sucursal_seleccionada)
+            df = calcular_estadisticas(df, sucursal_seleccionada)
+            variaciones = calcular_variaciones(df)
             
-            for _, row in estadisticas.iterrows():
-                producto = row['Producto']
-                
-                df_producto_filtrado = df[df['Producto'] == producto]
-                if sucursal_seleccionada != 'Todas':
-                    df_producto_filtrado = df_producto_filtrado[df_producto_filtrado['Sucursal'] == sucursal_seleccionada]
+            for producto in df['Producto'].unique():
+                datos_producto = df[df['Producto'] == producto]
 
                 st.markdown(f"### {producto}")
 
                 col1, col2 = st.columns([1, 2])  
 
                 with col1:
+                    precio_promedio = datos_producto['Precio Promedio'].mean()
+                    margen_promedio = datos_producto['Margen'].mean()
+                    unidades_vendidas = datos_producto['Unidades_vendidas'].sum()
+
+                    variacion_precio = variaciones[producto]["variacion_precio_promedio"]
+                    variacion_margen = variaciones[producto]["variacion_margen_promedio"]
+                    variacion_unidades = variaciones[producto]["variacion_unidades_vendidas"]
+
                     st.metric(
                         "Precio Promedio",
-                        f"${row['Precio Promedio']:.2f}",
-                        f"{row['Cambio Precio']:.2f}%"
+                        f"${precio_promedio:.2f}",
+                        f"{variacion_precio:+.2f}%"
                     )
                     st.metric(
                         "Margen Promedio",
-                        f"{row['Margen Promedio']:.2%}",
-                        f"{row['Cambio Margen']:.2f}%"
+                        f"{margen_promedio:.2f}%",
+                        f"{variacion_margen:+.2f}%"
                     )
                     st.metric(
                         "Unidades Vendidas",
-                        f"{int(row['Unidades Vendidas']):,}",
-                        f"{row['Cambio Unidades']:.2f}%"
+                        f"{int(unidades_vendidas):,}",
+                        f"{variacion_unidades:+.2f}%"
                     )
 
                 with col2:
-                    graficar_desarrollo(df_producto_filtrado, producto)
+                    graficar_desarrollo(datos_producto, producto)
 
 if __name__ == "__main__":
     main()
