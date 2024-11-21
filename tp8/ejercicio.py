@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+#link de streamlit
+#     
+
 def mostrar_informacion_alumno():
     with st.container():
         st.markdown('**Legajo:** 58761')
@@ -19,26 +22,39 @@ def cargar_datos(file):
         return None
 
 def calcular_estadisticas(df, sucursal_seleccionada):
+    # Filtrar por sucursal si no es "Todas"
     if sucursal_seleccionada != 'Todas':
         df = df[df['Sucursal'] == sucursal_seleccionada]
     
+    # Asegurarse de que los datos relevantes sean numéricos
+    for col in ['Ingreso_total', 'Unidades_vendidas', 'Costo_total']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    # Eliminar filas con datos faltantes
+    df = df.dropna(subset=['Ingreso_total', 'Unidades_vendidas', 'Costo_total'])
+    
+    # Agrupar datos por producto
     estadisticas = df.groupby('Producto').agg({
         'Ingreso_total': 'sum',
         'Unidades_vendidas': 'sum',
         'Costo_total': 'sum'
     }).reset_index()
     
+    # Calcular métricas principales
     estadisticas['Precio Promedio'] = estadisticas['Ingreso_total'] / estadisticas['Unidades_vendidas']
     estadisticas['Margen Promedio'] = (estadisticas['Ingreso_total'] - estadisticas['Costo_total']) / estadisticas['Ingreso_total']
     estadisticas['Unidades Vendidas'] = estadisticas['Unidades_vendidas']
     
-    # Agregar cambios simulados
-    estadisticas['Cambio Precio'] = np.random.uniform(-30, 30, size=len(estadisticas))
-    estadisticas['Cambio Margen'] = np.random.uniform(-5, 5, size=len(estadisticas))
-    estadisticas['Cambio Unidades'] = np.random.uniform(-10, 10, size=len(estadisticas))
+    # Calcular cambios como porcentaje de variación respecto a valores totales (opcional)
+    precio_promedio_total = estadisticas['Precio Promedio'].mean()
+    margen_promedio_total = estadisticas['Margen Promedio'].mean()
+    unidades_vendidas_total = estadisticas['Unidades Vendidas'].mean()
+
+    estadisticas['Cambio Precio'] = ((estadisticas['Precio Promedio'] - precio_promedio_total) / precio_promedio_total) * 100
+    estadisticas['Cambio Margen'] = ((estadisticas['Margen Promedio'] - margen_promedio_total) / margen_promedio_total) * 100
+    estadisticas['Cambio Unidades'] = ((estadisticas['Unidades Vendidas'] - unidades_vendidas_total) / unidades_vendidas_total) * 100
 
     return estadisticas
-
 
 def graficar_evolucion(df, producto):
     df_producto = df[df['Producto'] == producto].sort_values('Año-Mes')
